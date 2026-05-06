@@ -1,0 +1,93 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+
+Description: Serverless REST API - Task Manager built with AWS Lambda, API Gateway and DynamoDB
+
+Globals:
+  Function:
+    Timeout: 10
+    MemorySize: 128
+    Runtime: python3.12
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref TasksTable
+
+Resources:
+
+  # ─── Lambda Function ───────────────────────────────────────────────────────
+  TasksFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: serverless-tasks-api
+      CodeUri: src/
+      Handler: handler.lambda_handler
+      Description: Handles CRUD operations for the Tasks API
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TasksTable
+      Events:
+        GetTasks:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TasksApi
+            Path: /tasks
+            Method: GET
+        GetTask:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TasksApi
+            Path: /tasks/{id}
+            Method: GET
+        CreateTask:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TasksApi
+            Path: /tasks
+            Method: POST
+        UpdateTask:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TasksApi
+            Path: /tasks/{id}
+            Method: PUT
+        DeleteTask:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TasksApi
+            Path: /tasks/{id}
+            Method: DELETE
+
+  # ─── API Gateway ───────────────────────────────────────────────────────────
+  TasksApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: serverless-tasks-api
+      StageName: prod
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization'"
+        AllowOrigin: "'*'"
+
+  # ─── DynamoDB Table ────────────────────────────────────────────────────────
+  TasksTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: tasks
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${TasksApi}.execute-api.${AWS::Region}.amazonaws.com/prod"
+  FunctionArn:
+    Description: Lambda Function ARN
+    Value: !GetAtt TasksFunction.Arn
+  TableName:
+    Description: DynamoDB Table Name
+    Value: !Ref TasksTable
